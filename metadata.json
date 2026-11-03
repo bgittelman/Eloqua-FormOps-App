@@ -1,0 +1,8 @@
+{
+  "name": "Remix 10/29 Remix Eloqua Form Batch Submitter",
+  "description": "Production-ready enterprise engine to ingest and submit spreadsheet data (CSV/XLSX) to Oracle Eloqua forms with intelligent fuzzy mapping, batch throttling, circuit breaker, and GDPR auto-purge.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

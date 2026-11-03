@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eloqua Form Batch Submitter - System Configuration</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #F3F5F9; }
+  </style>
+</head>
+<body class="min-h-screen text-slate-800 p-4 sm:p-8 flex flex-col items-center">
+  <div class="max-w-2xl w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+    <div class="flex items-center justify-between pb-6 border-b border-gray-100">
+      <div>
+        <h1 class="text-xl font-bold text-slate-900">System Configuration</h1>
+        <p class="text-xs text-slate-500 mt-1">Oracle Eloqua REST API 2.0 Credentials & Engine Settings</p>
+      </div>
+      <span class="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-semibold">
+        Route: /admin
+      </span>
+    </div>
+
+    <form id="admin-form" onsubmit="handleSaveConfig(event)" class="space-y-5 mt-6">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Eloqua Pod</label>
+          <input type="text" id="pod" name="pod" value="p01" required class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+          <p class="text-[11px] text-slate-400 mt-1">e.g. p01, p02</p>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Eloqua Company Name</label>
+          <input type="text" id="site_id" name="site_id" value="" placeholder="e.g. company" required class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+          <p class="text-[11px] text-slate-400 mt-1">Company name for authentication</p>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Eloqua Username</label>
+        <input type="text" id="username" name="username" placeholder="e.g. first.last" class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Password</label>
+        <input type="password" id="password" name="password" placeholder="Leave empty to retain existing saved password" class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+        <p id="pw-status" class="text-[11px] text-slate-400 mt-1">
+          Stored securely in SQLite storage.db. Passwords are never returned or displayed in the UI.
+        </p>
+      </div>
+
+      <!-- Optional Backend API URL for Static Blob Container Deployment -->
+      <div>
+        <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Backend Server Proxy URL (Optional - Static Hosting Only)</label>
+        <input type="text" id="backend_url" name="backend_url" placeholder="https://your-backend-app.run.app" class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+        <p class="text-[11px] text-slate-400 mt-1">
+          Leave blank for standard usage. Only needed when hosted statically in Azure Blob Storage or S3.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Batch Size</label>
+          <input type="number" id="batch_size" name="batch_size" value="50" min="1" max="500" required class="w-full px-3 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+          <p class="text-[11px] text-slate-400 mt-1">Default: 50 records</p>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Throttle (Seconds)</label>
+          <input type="number" step="0.5" id="throttle_seconds" name="throttle_seconds" value="2" min="0" max="60" required class="w-full px-3 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+          <p class="text-[11px] text-slate-400 mt-1">Pause per batch</p>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Max Row Ceiling</label>
+          <input type="number" id="max_row_limit" name="max_row_limit" value="5000" min="10" max="50000" required class="w-full px-3 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+          <p class="text-[11px] text-slate-400 mt-1">Default: 5,000</p>
+        </div>
+      </div>
+
+      <div id="test-result-box" class="hidden p-3.5 rounded-xl text-xs font-medium"></div>
+
+      <div class="pt-6 border-t border-gray-100 flex items-center justify-between">
+        <button type="button" onclick="testConnection()" id="test-btn" class="px-4 py-2 text-xs font-bold text-slate-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
+          Test Connection
+        </button>
+        <div class="flex space-x-2">
+          <a href="../" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-xl">
+            Return to App
+          </a>
+          <button type="submit" id="save-btn" class="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition-colors">
+            Save Configuration
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    function getApiBaseUrl() {
+      // Clear any legacy dead backend URLs from localStorage
+      const stored = localStorage.getItem('eloqua_backend_url') || '';
+      if (stored.includes('mn4edwyie3nbnpbgmpajmf')) {
+        localStorage.removeItem('eloqua_backend_url');
+      }
+      const custom = (document.getElementById('backend_url')?.value || localStorage.getItem('eloqua_backend_url') || '').trim();
+      if (custom && !custom.includes('mn4edwyie3nbnpbgmpajmf')) {
+        return custom.replace(/\/+$/, '');
+      }
+      return '';
+    }
+
+    async function loadAdminConfig() {
+      const storedBackend = localStorage.getItem('eloqua_backend_url') || '';
+      if (storedBackend.includes('mn4edwyie3nbnpbgmpajmf')) {
+        localStorage.removeItem('eloqua_backend_url');
+      }
+      if (document.getElementById('backend_url')) {
+        document.getElementById('backend_url').value = localStorage.getItem('eloqua_backend_url') || '';
+      }
+
+      try {
+        const baseUrl = getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/admin/config`);
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const data = await res.json();
+          document.getElementById('site_id').value = data.site_id || '';
+          document.getElementById('pod').value = data.pod || 'p01';
+          document.getElementById('username').value = data.username || '';
+          document.getElementById('batch_size').value = data.batch_size || 50;
+          document.getElementById('throttle_seconds').value = data.throttle_seconds || 2;
+          document.getElementById('max_row_limit').value = data.max_row_limit || 5000;
+          if (data.has_password) {
+            document.getElementById('pw-status').innerText = '✓ Existing password saved in database. Leave blank to preserve.';
+            document.getElementById('pw-status').className = 'text-[11px] text-emerald-600 font-medium mt-1';
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load config via backend, using local defaults.');
+      }
+    }
+
+    function showToast(message, type = 'info') {
+      let toastContainer = document.getElementById('toast-container');
+      if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'fixed bottom-6 right-6 z-50 flex flex-col space-y-2 max-w-sm pointer-events-none';
+        document.body.appendChild(toastContainer);
+      }
+
+      const toast = document.createElement('div');
+      const bgClass = type === 'error' ? 'bg-rose-600 text-white' : type === 'warning' ? 'bg-amber-600 text-white' : type === 'success' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white';
+      toast.className = `${bgClass} px-4 py-3 rounded-xl shadow-xl text-xs font-medium flex items-center space-x-2 transition-all transform duration-200 pointer-events-auto`;
+      toast.innerText = message;
+      toastContainer.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    async function handleSaveConfig(e) {
+      e.preventDefault();
+      const btn = document.getElementById('save-btn');
+      btn.innerText = 'Saving...';
+
+      const backendUrl = document.getElementById('backend_url').value.trim();
+      if (backendUrl) {
+        localStorage.setItem('eloqua_backend_url', backendUrl);
+      }
+
+      const payload = {
+        site_id: document.getElementById('site_id').value.trim(),
+        pod: document.getElementById('pod').value.trim(),
+        username: document.getElementById('username').value.trim(),
+        password: document.getElementById('password').value.trim(),
+        batch_size: parseInt(document.getElementById('batch_size').value, 10),
+        throttle_seconds: parseFloat(document.getElementById('throttle_seconds').value),
+        max_row_limit: parseInt(document.getElementById('max_row_limit').value, 10)
+      };
+
+      try {
+        const baseUrl = getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/admin/config`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await res.json();
+          showToast(data.message || 'Configuration saved successfully.', 'success');
+          document.getElementById('password').value = '';
+          loadAdminConfig();
+        } else {
+          localStorage.setItem('eloqua_site_id', payload.site_id);
+          localStorage.setItem('eloqua_pod', payload.pod);
+          localStorage.setItem('eloqua_username', payload.username);
+          showToast('Configuration saved in browser storage.', 'success');
+        }
+      } catch (err) {
+        localStorage.setItem('eloqua_site_id', payload.site_id);
+        localStorage.setItem('eloqua_pod', payload.pod);
+        localStorage.setItem('eloqua_username', payload.username);
+        showToast('Configuration saved in browser storage.', 'success');
+      } finally {
+        btn.innerText = 'Save Configuration';
+      }
+    }
+
+    async function testConnection() {
+      const btn = document.getElementById('test-btn');
+      const box = document.getElementById('test-result-box');
+      const pod = document.getElementById('pod').value.trim();
+      const site_id = document.getElementById('site_id').value.trim();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
+
+      btn.innerText = 'Connecting to Eloqua...';
+      btn.disabled = true;
+      box.classList.add('hidden');
+
+      try {
+        const baseUrl = getApiBaseUrl();
+        const endpoint = `${baseUrl}/api/admin/test-connection`;
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ site_id, pod, username, password })
+        });
+
+        const contentType = res.headers.get('content-type') || '';
+        box.classList.remove('hidden');
+
+        let data = null;
+        if (contentType.includes('application/json')) {
+          try {
+            data = await res.json();
+          } catch (jsonErr) {
+            data = null;
+          }
+        }
+
+        if (!data) {
+          box.className = 'p-3.5 rounded-xl text-xs font-medium bg-amber-50 text-amber-900 border border-amber-300';
+          box.innerHTML = `<strong>Backend API Notice:</strong> Endpoint <code>${endpoint}</code> returned HTTP ${res.status} (non-JSON response).<br>If running statically in Azure Blob Storage or S3, please specify your Backend Server Proxy URL above.`;
+          return;
+        }
+
+        if (data.success) {
+          box.className = 'p-3.5 rounded-xl text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200';
+          box.innerText = '✓ ' + data.message;
+        } else {
+          box.className = 'p-3.5 rounded-xl text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200';
+          box.innerText = '✕ ' + data.message;
+        }
+      } catch (err) {
+        box.classList.remove('hidden');
+        box.className = 'p-3.5 rounded-xl text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200';
+        box.innerText = 'Connection error: ' + err.message;
+      } finally {
+        btn.innerText = 'Test Connection';
+        btn.disabled = false;
+      }
+    }
+
+    window.onload = loadAdminConfig;
+  </script>
+</body>
+</html>

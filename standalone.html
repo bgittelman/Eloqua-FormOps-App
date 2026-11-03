@@ -1,0 +1,1988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eloqua FormOps</title>
+  <meta name="description" content="Production-ready enterprise engine to submit spreadsheet data and retrieve recent form submissions from Oracle Eloqua forms with intelligent schema mapping, batch throttling, and Excel export." />
+  <meta property="og:title" content="Eloqua FormOps" />
+  <meta property="og:description" content="Production-ready enterprise engine to submit spreadsheet data and retrieve recent form submissions from Oracle Eloqua forms with intelligent schema mapping, batch throttling, and Excel export." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <!-- Zero-build CDN Dependencies: Runs natively in any browser, server, Azure Blob Container, or AWS S3 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #F3F5F9; }
+    .step-active { color: #2563EB; font-weight: 700; }
+    .step-done { color: #059669; font-weight: 600; }
+    .step-inactive { color: #9CA3AF; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col text-slate-800">
+
+  <!-- Top Navigation Bar -->
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-xs">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="resetWizard()">
+        <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/25">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <path d="m9 15 3-3 3 3"></path>
+            <path d="M12 12v6"></path>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base font-bold text-slate-900 tracking-tight">Eloqua FormOps</h1>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <button onclick="resetWizard()" class="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer" title="Reset and return to operation selection">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          <span>Start Over</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Step Tracker Progress Bar (Submit Wizard) -->
+  <div id="step-tracker-bar" class="hidden bg-white border-b border-gray-200 py-3 shadow-xs">
+    <div class="max-w-4xl mx-auto px-6">
+      <div class="flex items-center justify-between text-xs font-medium">
+        <div id="step-nav-1" class="flex items-center space-x-2 step-active">
+          <span class="w-6 h-6 rounded-full border-2 border-blue-600 bg-blue-50 text-blue-600 flex items-center justify-center font-bold">1</span>
+          <span class="hidden sm:inline">Select Form</span>
+        </div>
+        <div class="flex-1 h-0.5 bg-gray-200 mx-3"></div>
+        <div id="step-nav-2" class="flex items-center space-x-2 step-inactive">
+          <span class="w-6 h-6 rounded-full border-2 border-gray-200 text-gray-400 flex items-center justify-center font-bold">2</span>
+          <span class="hidden sm:inline">Upload File</span>
+        </div>
+        <div class="flex-1 h-0.5 bg-gray-200 mx-3"></div>
+        <div id="step-nav-3" class="flex items-center space-x-2 step-inactive">
+          <span class="w-6 h-6 rounded-full border-2 border-gray-200 text-gray-400 flex items-center justify-center font-bold">3</span>
+          <span class="hidden sm:inline">Map Fields</span>
+        </div>
+        <div class="flex-1 h-0.5 bg-gray-200 mx-3"></div>
+        <div id="step-nav-4" class="flex items-center space-x-2 step-inactive">
+          <span class="w-6 h-6 rounded-full border-2 border-gray-200 text-gray-400 flex items-center justify-center font-bold">4</span>
+          <span class="hidden sm:inline">Review Mapping</span>
+        </div>
+        <div class="flex-1 h-0.5 bg-gray-200 mx-3"></div>
+        <div id="step-nav-5" class="flex items-center space-x-2 step-inactive">
+          <span class="w-6 h-6 rounded-full border-2 border-gray-200 text-gray-400 flex items-center justify-center font-bold">5</span>
+          <span class="hidden sm:inline">Process & Results</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden Admin Interface (/admin or #admin) -->
+  <section id="admin-view" class="hidden flex-1 max-w-2xl w-full mx-auto p-6 mb-20 animate-in fade-in">
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+      <div class="flex items-center justify-between pb-6 border-b border-gray-100">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">System Configuration</h2>
+          <p class="text-xs text-slate-500 mt-1">Oracle Eloqua REST API 2.0 Credentials & Engine Settings</p>
+        </div>
+        <span class="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-semibold">
+          Hidden Route (/admin)
+        </span>
+      </div>
+
+      <form id="admin-form" onsubmit="handleSaveAdminConfig(event)" class="space-y-5 mt-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Eloqua Pod</label>
+            <input type="text" id="admin-pod" value="p01" required class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+            <p class="text-[11px] text-slate-400 mt-1">e.g. p01, p02</p>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Eloqua Company Name</label>
+            <input type="text" id="admin-site-id" value="" placeholder="e.g. company" required class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+            <p class="text-[11px] text-slate-400 mt-1">Company name for authentication</p>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Eloqua Username</label>
+          <input type="text" id="admin-username" placeholder="e.g. first.last" class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Password</label>
+          <input type="password" id="admin-password" placeholder="Leave empty to retain existing saved password" class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+          <p id="pw-status" class="text-[11px] text-slate-400 mt-1">
+            Zero Plaintext: Stored securely in SQLite. Passwords are never returned or displayed in the UI.
+          </p>
+        </div>
+
+        <!-- Optional Backend API URL for Static Blob Container Deployment -->
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Backend Server Proxy URL (Optional - Static Hosting Only)</label>
+          <input type="text" id="admin-backend-url" placeholder="https://your-backend-app.run.app" class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+          <p class="text-[11px] text-slate-400 mt-1">
+            Leave blank for standard usage. Only needed when hosted statically in Azure Blob Storage or S3.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Batch Size</label>
+            <input type="number" id="admin-batch-size" value="50" min="1" max="500" required class="w-full px-3 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+            <p class="text-[11px] text-slate-400 mt-1">Default: 50 records</p>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Throttle (Seconds)</label>
+            <input type="number" step="0.5" id="admin-throttle" value="2" min="0" max="60" required class="w-full px-3 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+            <p class="text-[11px] text-slate-400 mt-1">Pause per batch</p>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Max Row Ceiling</label>
+            <input type="number" id="admin-max-rows" value="5000" min="10" max="50000" required class="w-full px-3 py-2 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+            <p class="text-[11px] text-slate-400 mt-1">Default: 5,000</p>
+          </div>
+        </div>
+
+        <div id="admin-test-result" class="hidden p-3.5 rounded-xl text-xs font-medium"></div>
+
+        <div class="pt-6 border-t border-gray-100 flex items-center justify-between">
+          <button type="button" onclick="testAdminConnection()" id="admin-test-btn" class="px-4 py-2 text-xs font-bold text-slate-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
+            Test Connection
+          </button>
+          <div class="flex space-x-2">
+            <button type="button" onclick="closeAdminView()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-xl">
+              Close
+            </button>
+            <button type="submit" id="admin-save-btn" class="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition-colors">
+              Save Configuration
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- Start Page: Operation Mode Selection (Matches mockup) -->
+  <section id="mode-selection-view" class="flex-1 max-w-4xl w-full mx-auto p-6 my-auto flex flex-col justify-center animate-in fade-in">
+    <div class="bg-white rounded-3xl border border-gray-200 p-8 sm:p-14 shadow-sm text-center">
+      <div class="max-w-2xl mx-auto mb-10">
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Choose Operation</h2>
+        <p class="text-sm text-slate-500 mt-2">Submit spreadsheet records in batches to an Eloqua form, or extract recent form submissions directly to an Excel or CSV file.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto text-left">
+        <!-- Submit Button Card -->
+        <button onclick="startSubmitMode()" type="button" class="group relative p-8 bg-white hover:bg-blue-50/50 rounded-2xl border-2 border-blue-600 hover:border-blue-700 shadow-sm hover:shadow-md transition-all text-left flex flex-col justify-between cursor-pointer focus:outline-none focus:ring-4 focus:ring-blue-100 min-h-[220px]">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 mb-6 group-hover:scale-105 transition-transform">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <path stroke-linecap="round" stroke-linejoin="round" d="m9 15 3-3 3 3"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 12v6"></path>
+              </svg>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">Submit form data to Eloqua</h3>
+            <p class="text-xs text-slate-500 mt-2 leading-relaxed">
+              Upload Excel or CSV spreadsheets, intelligently map columns to form fields with fuzzy matching, and submit records in controlled batches with circuit breaker protection.
+            </p>
+          </div>
+          <div class="mt-6 flex items-center text-xs font-bold text-blue-600 group-hover:translate-x-1 transition-transform">
+            <span>Start Batch Ingestion</span>
+            <svg class="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+          </div>
+        </button>
+
+        <!-- Retrieve Button Card -->
+        <button onclick="startRetrieveMode()" type="button" class="group relative p-8 bg-white hover:bg-blue-50/50 rounded-2xl border-2 border-blue-600 hover:border-blue-700 shadow-sm hover:shadow-md transition-all text-left flex flex-col justify-between cursor-pointer focus:outline-none focus:ring-4 focus:ring-blue-100 min-h-[220px]">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 mb-6 group-hover:scale-105 transition-transform">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16"></path>
+              </svg>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">Retrieve form data from Eloqua</h3>
+            <p class="text-xs text-slate-500 mt-2 leading-relaxed">
+              Select any synced Eloqua form, choose how many recent submissions to pull (10, 100, 500, or 1000), and download the assembled JSON data as an Excel (.xlsx) file.
+            </p>
+          </div>
+          <div class="mt-6 flex items-center text-xs font-bold text-blue-600 group-hover:translate-x-1 transition-transform">
+            <span>Start Data Retrieval</span>
+            <svg class="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+          </div>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Wizard Content (Submit Mode) -->
+  <main id="wizard-main" class="hidden flex-1 max-w-4xl w-full mx-auto p-6 mb-20">
+
+    <!-- STEP 1: Select Form -->
+    <section id="step-1" class="block space-y-6">
+      <div class="bg-white rounded-2xl border border-gray-200 p-8 shadow-xs">
+        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900">Step 1: Choose Target Eloqua Form</h2>
+            <p class="text-sm text-slate-500 mt-1">Select the destination form to retrieve its schema and numeric field identifiers from Oracle Eloqua.</p>
+          </div>
+          <div class="flex space-x-2">
+            <button onclick="syncForms()" id="sync-forms-btn" class="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+              <span>Sync Forms</span>
+            </button>
+            <button onclick="refreshFormFields()" id="refresh-fields-btn" class="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+              <span>Refresh Fields</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="sync-feedback-box" class="hidden mt-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900"></div>
+
+        <div class="mt-6 relative">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Search Form by Name or Numeric ID</label>
+          <div class="relative">
+            <input type="text" id="form-search-input" placeholder="Type to filter cached forms..." oninput="handleFormSearch(this.value)" onfocus="handleFormSearch(this.value)" class="w-full px-4 py-3 pl-10 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          </div>
+          <div id="form-dropdown" class="hidden absolute top-full left-0 right-0 mt-1 max-h-80 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl z-50 divide-y divide-gray-100"></div>
+        </div>
+
+        <div id="selected-form-banner" class="hidden mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">ID</div>
+            <div>
+              <p id="selected-form-name" class="text-sm font-bold text-blue-950"></p>
+              <p id="selected-form-meta" class="text-xs text-blue-700"></p>
+            </div>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 bg-blue-200/60 text-blue-900 rounded-md">Selected</span>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-slate-400">
+          <span id="forms-cache-stat">0 forms in SQLite storage.db</span>
+          <span id="forms-last-synced-stat">Last synced: Never</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2: Upload File -->
+    <section id="step-2" class="hidden space-y-6">
+      <div class="bg-white rounded-2xl border border-gray-200 p-8 shadow-xs">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Step 2: Upload Spreadsheet</h2>
+          <p class="text-sm text-slate-500 mt-1">Upload your customer or lead dataset in Excel (.xlsx) or CSV format. First sheet will be ingested.</p>
+        </div>
+
+        <div id="drop-zone" onclick="document.getElementById('file-input').click()" class="mt-6 border-2 border-dashed border-gray-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/40 rounded-2xl p-12 text-center cursor-pointer transition-all">
+          <input type="file" id="file-input" class="hidden" accept=".csv, .xlsx" onchange="handleFileSelected(event)">
+          <div class="w-16 h-16 mx-auto mb-4 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+          </div>
+          <h3 class="text-base font-bold text-slate-800">Drag & drop your file here</h3>
+          <p class="text-xs text-slate-500 mt-1">or click anywhere to browse your computer for a .xlsx or .csv file</p>
+          <div class="mt-4 inline-flex items-center space-x-2 px-3 py-1 bg-white border border-gray-200 rounded-full text-xs font-medium text-slate-600">
+            <span>Enforces maximum 5,000 rows ceiling</span>
+          </div>
+        </div>
+
+        <div id="file-preview-banner" class="hidden mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            </div>
+            <div>
+              <p id="file-preview-name" class="text-sm font-bold text-emerald-950"></p>
+              <p id="file-preview-stats" class="text-xs text-emerald-700"></p>
+            </div>
+          </div>
+          <button onclick="resetFileSelection()" class="text-xs text-red-600 hover:text-red-800 font-semibold">Change File</button>
+        </div>
+
+        <div id="duplicate-header-warning" class="hidden mt-4 p-4 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs">
+          <span class="font-bold">⚠️ Warning - Duplicate Column Headers Detected: </span>
+          <span id="duplicate-header-list"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3: Map Fields -->
+    <section id="step-3" class="hidden space-y-6">
+      <div class="bg-white rounded-2xl border border-gray-200 p-8 shadow-xs">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900">Step 3: Map Columns to Eloqua Fields</h2>
+            <p class="text-sm text-slate-500 mt-1">Headers auto-matched via Levenshtein fuzzy similarity & aliases. Ensure at least one email field is mapped.</p>
+          </div>
+          <div id="email-validation-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+            Email mapping required
+          </div>
+        </div>
+
+        <div id="duplicate-mapping-notice" class="hidden mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+          <span class="font-bold">Notice:</span> <span id="duplicate-mapping-notice-text">Multiple columns are mapped to the same Eloqua field. The submission engine automatically consolidates values to comply with Eloqua's NoDuplicatesRequirement.</span>
+        </div>
+
+        <div class="mt-6 border border-gray-200 rounded-xl overflow-hidden">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-gray-200">
+              <tr>
+                <th class="py-3 px-4">Uploaded Column Header</th>
+                <th class="py-3 px-4">Row 1 Sample Preview</th>
+                <th class="py-3 px-4">Target Eloqua Form Field</th>
+              </tr>
+            </thead>
+            <tbody id="mapping-table-body" class="divide-y divide-gray-100 text-slate-700 font-medium"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 4: Review Mapping -->
+    <section id="step-4" class="hidden space-y-6">
+      <div class="bg-white rounded-2xl border border-gray-200 p-8 shadow-xs">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Step 4: Review Active Field Mappings</h2>
+          <p class="text-sm text-slate-500 mt-1">Verify configured column pairs before executing batch submission to Eloqua.</p>
+        </div>
+
+        <div class="mt-6 border border-gray-200 rounded-xl overflow-hidden">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-gray-200">
+              <tr>
+                <th class="py-3 px-4 w-1/2">Spreadsheet Column (Sample Value)</th>
+                <th class="py-3 px-4 w-1/2">Eloqua Target Field Name [ID]</th>
+              </tr>
+            </thead>
+            <tbody id="review-table-body" class="divide-y divide-gray-100 text-slate-700"></tbody>
+          </table>
+        </div>
+
+        <div class="mt-6 p-4 bg-slate-50 border border-gray-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div class="flex space-x-6 text-slate-600">
+            <div><span class="font-bold text-slate-900" id="summary-total-rows">0</span> total rows</div>
+            <div><span class="font-bold text-emerald-600" id="summary-mapped-count">0</span> columns mapped</div>
+            <div><span class="font-bold text-slate-400" id="summary-ignored-count">0</span> ignored</div>
+          </div>
+          <div class="text-slate-500">Target: <span id="summary-target-form" class="font-semibold text-slate-900"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 5: Process & Results -->
+    <section id="step-5" class="hidden space-y-6">
+      <div class="bg-white rounded-2xl border border-gray-200 p-8 shadow-xs">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Step 5: Processing Ingestion Batches</h2>
+          <p class="text-sm text-slate-500 mt-1">Submitting records in batches of 50 to Oracle Eloqua REST API 2.0 with pause between batches.</p>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="mt-6">
+          <div class="flex items-center justify-between text-xs font-semibold mb-2">
+            <span id="process-phase-text" class="text-slate-700">Submitting records to Eloqua REST API...</span>
+            <span id="process-percent-text" class="text-blue-600 font-mono">0%</span>
+          </div>
+          <div class="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+            <div id="process-progress-bar" class="h-full bg-blue-600 transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- 4 Metric Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
+          <div class="p-4 bg-slate-50 border border-gray-200 rounded-xl">
+            <span class="text-xs text-slate-500 font-medium">Total Rows</span>
+            <p id="stat-total-rows" class="text-2xl font-bold text-slate-900 mt-1">0</p>
+          </div>
+          <div class="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+            <span class="text-xs text-blue-700 font-medium">Processed</span>
+            <p id="stat-processed-rows" class="text-2xl font-bold text-blue-900 mt-1">0</p>
+          </div>
+          <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <span class="text-xs text-emerald-700 font-medium">Successful</span>
+            <p id="stat-successful-rows" class="text-2xl font-bold text-emerald-900 mt-1">0</p>
+          </div>
+          <div class="p-4 bg-rose-50 border border-rose-200 rounded-xl">
+            <span class="text-xs text-rose-700 font-medium">Failed</span>
+            <p id="stat-failed-rows" class="text-2xl font-bold text-rose-900 mt-1">0</p>
+          </div>
+        </div>
+
+        <!-- Circuit Breaker Warning -->
+        <div id="circuit-breaker-banner" class="hidden mt-6 p-4 bg-rose-50 border border-rose-300 rounded-xl">
+          <div class="flex items-start space-x-3">
+            <div class="w-8 h-8 rounded-full bg-rose-600 text-white flex items-center justify-center flex-shrink-0 font-bold">!</div>
+            <div>
+              <h4 class="text-sm font-bold text-rose-950">Circuit Breaker Triggered</h4>
+              <p id="circuit-breaker-text" class="text-xs text-rose-800 mt-1"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Success Banner -->
+        <div id="success-banner" class="hidden mt-6 p-6 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+          <div class="w-12 h-12 bg-emerald-600 text-white rounded-full flex items-center justify-center mx-auto mb-3">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+          </div>
+          <h3 class="text-base font-bold text-emerald-950">All Records Ingested Successfully!</h3>
+          <p id="success-banner-subtext" class="text-xs text-emerald-700 mt-1"></p>
+        </div>
+
+        <!-- Download Failed Records -->
+        <div id="failed-records-container" class="hidden mt-6 text-center">
+          <button onclick="downloadFailedRecordsCSV()" class="inline-flex items-center space-x-2 px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-colors cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            <span id="failed-records-btn-text">Download Failed Records (.csv)</span>
+          </button>
+          <p class="text-[11px] text-slate-400 mt-2">Retains all original columns plus appended Eloqua_HTTP_Status and Eloqua_Error_Details</p>
+        </div>
+
+        <!-- Post-Run Action Buttons (Start Over) -->
+        <div id="step5-actions" class="hidden mt-8 pt-6 border-t border-gray-100 flex flex-wrap items-center justify-center gap-3">
+          <button onclick="resetWizard()" class="inline-flex items-center space-x-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md transition-colors cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            <span>Start Over (New Ingestion)</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- RETRIEVE FORM DATA VIEW -->
+  <main id="retrieve-main" class="hidden flex-1 max-w-4xl w-full mx-auto p-6 mb-20 animate-in fade-in">
+    <div class="bg-white rounded-2xl border border-gray-200 p-8 shadow-xs space-y-8">
+      
+      <!-- Header -->
+      <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b border-gray-100">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Retrieve Form Data from Eloqua</h2>
+          <p class="text-sm text-slate-500 mt-1">Select an Eloqua form and choose how many recent submission records to export into a file.</p>
+        </div>
+        <div class="flex space-x-2">
+          <button onclick="syncRetrieveForms()" id="retrieve-sync-forms-btn" class="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            <span>Sync Forms</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="retrieve-sync-feedback" class="hidden p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900"></div>
+
+      <!-- Controls Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- 1. Form Selector -->
+        <div class="relative">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+            1. Target Eloqua Form
+          </label>
+          <div class="relative">
+            <input type="text" id="retrieve-form-search-input" placeholder="Type form name or ID to filter..." oninput="handleRetrieveFormSearch(this.value)" onfocus="handleRetrieveFormSearch(this.value)" class="w-full px-4 py-3 pl-10 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          </div>
+          <div id="retrieve-form-dropdown" class="hidden absolute top-full left-0 right-0 mt-1 max-h-72 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl z-50 divide-y divide-gray-100"></div>
+          
+          <div id="retrieve-selected-form-banner" class="hidden mt-3 p-3.5 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
+            <div class="flex items-center space-x-3 truncate">
+              <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-[11px] shrink-0">ID</div>
+              <div class="truncate">
+                <p id="retrieve-selected-form-name" class="text-xs font-bold text-blue-950 truncate"></p>
+                <p id="retrieve-selected-form-meta" class="text-[11px] text-blue-700 truncate"></p>
+              </div>
+            </div>
+            <button onclick="clearRetrieveSelectedForm()" class="text-xs text-blue-700 hover:text-blue-900 font-semibold ml-2 cursor-pointer">Change</button>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-2" id="retrieve-cache-stat">0 forms in SQLite storage.db</p>
+        </div>
+
+        <!-- 2. Record Count Selector -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+            2. Number of Recent Records to Pull
+          </label>
+          <div class="relative">
+            <select id="retrieve-record-count" class="w-full px-4 py-3 text-sm bg-slate-50 border border-gray-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none cursor-pointer font-medium text-slate-800">
+              <option value="10">10 records (Quick sample)</option>
+              <option value="100" selected>100 records (Recommended)</option>
+              <option value="500">500 records</option>
+              <option value="1000">1000 records (Maximum)</option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-500">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-2">
+            Pulls the most recent submissions based on submission date from Oracle Eloqua.
+          </p>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <div class="pt-4 border-t border-gray-100 flex items-center justify-end">
+        <button id="retrieve-execute-btn" onclick="executeRetrieveData()" disabled class="inline-flex items-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+          </svg>
+          <span id="retrieve-execute-btn-text">Retrieve Form Data</span>
+        </button>
+      </div>
+
+      <!-- Progress / Loading Banner -->
+      <div id="retrieve-loading-box" class="hidden p-6 bg-slate-50 border border-slate-200 rounded-xl text-center space-y-3">
+        <div class="inline-block animate-spin w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full"></div>
+        <h4 id="retrieve-loading-title" class="text-sm font-bold text-slate-800">Retrieving form data from Oracle Eloqua...</h4>
+        <p id="retrieve-loading-subtitle" class="text-xs text-slate-500">Fetching records via Eloqua REST API 2.0 and mapping field identifiers...</p>
+      </div>
+
+      <!-- Error Banner -->
+      <div id="retrieve-error-box" class="hidden p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 space-y-1">
+        <div class="font-bold text-sm text-rose-950 flex items-center space-x-2">
+          <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+          <span id="retrieve-error-title">Retrieval Failed</span>
+        </div>
+        <p id="retrieve-error-message"></p>
+      </div>
+
+      <!-- Results & Download Panel -->
+      <div id="retrieve-results-box" class="hidden space-y-6 pt-2">
+        <div class="p-6 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="flex items-center space-x-3.5">
+            <div class="w-12 h-12 bg-emerald-600 text-white rounded-xl flex items-center justify-center shrink-0 shadow-sm">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <div>
+              <h3 id="retrieve-success-title" class="text-base font-bold text-emerald-950">Data Retrieved Successfully!</h3>
+              <p id="retrieve-success-subtext" class="text-xs text-emerald-700 mt-0.5"></p>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <button onclick="downloadRetrievedFile('csv')" class="inline-flex items-center space-x-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-colors cursor-pointer">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              <span>Download CSV File (.csv)</span>
+            </button>
+            <button onclick="downloadRetrievedFile('xlsx')" class="inline-flex items-center space-x-2 px-4 py-2.5 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer">
+              <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              <span>Download Excel (.xlsx)</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 gap-1 px-1">
+          <span id="retrieve-file-info" class="font-medium"></span>
+          <span class="text-slate-400">Temporary file is automatically purged upon download or new export request</span>
+        </div>
+
+        <!-- Preview Table -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700">Preview Top Records</h4>
+            <span id="retrieve-preview-count" class="text-xs text-slate-400"></span>
+          </div>
+          <div class="border border-gray-200 rounded-xl overflow-hidden shadow-xs">
+            <div class="overflow-x-auto max-h-96">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead id="retrieve-table-head" class="bg-slate-100 text-slate-700 uppercase font-bold sticky top-0 z-10 border-b border-gray-200">
+                </thead>
+                <tbody id="retrieve-table-body" class="divide-y divide-gray-100 bg-white">
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-4 flex justify-between items-center border-t border-gray-100">
+          <button onclick="resetRetrieveForm()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors cursor-pointer">
+            Retrieve Another Form
+          </button>
+          <button onclick="resetWizard()" class="px-4 py-2 text-xs font-semibold text-blue-600 hover:text-blue-800 rounded-xl cursor-pointer">
+            ← Return to Operation Selection
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Sticky Bottom Action Bar -->
+  <footer id="wizard-footer" class="hidden bg-white border-t border-gray-200 fixed bottom-0 left-0 right-0 z-40 py-3 shadow-lg">
+    <div class="max-w-4xl mx-auto px-6 flex items-center justify-between">
+      <div id="footer-status-text" class="text-xs text-slate-500 font-medium">Step 1 of 5: Select Eloqua destination form</div>
+      <div class="flex space-x-3">
+        <button id="btn-back" onclick="goToPreviousStep()" class="hidden px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">Back</button>
+        <button id="btn-next" onclick="goToNextStep()" disabled class="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-sm transition-colors">Continue →</button>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    let currentAppMode = 'select'; // 'select' | 'submit' | 'retrieve'
+    let currentStep = 1;
+    let isAdminOpen = false;
+    let cachedForms = [];
+    let selectedForm = null;
+    let formFields = [];
+    let uploadedData = null;
+    let fieldMapping = {};
+    let isProcessing = false;
+    let activeJobId = null;
+    let failedRowsList = [];
+    let pollingInterval = null;
+
+    // Retrieve Mode Variables
+    let retrieveSelectedForm = null;
+    let isRetrieving = false;
+    let currentRetrieveExportData = null;
+
+    function base64ToBlob(base64, mimeType) {
+      const byteCharacters = atob(base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      return new Blob([byteArray], { type: mimeType });
+    }
+
+    function triggerBlobDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    async function downloadRetrievedFile(format) {
+      if (!currentRetrieveExportData) return;
+
+      if (format === 'csv') {
+        const filename = currentRetrieveExportData.csv_filename || currentRetrieveExportData.filename || 'eloqua_form_data.csv';
+        if (currentRetrieveExportData.csv_content) {
+          const blob = new Blob([currentRetrieveExportData.csv_content], { type: 'text/csv;charset=utf-8;' });
+          triggerBlobDownload(blob, filename);
+          showToast(`Downloaded ${filename}`, 'success');
+        } else {
+          try {
+            const baseUrl = getApiBaseUrl();
+            const res = await fetch(`${baseUrl}${currentRetrieveExportData.csv_download_url}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const blob = await res.blob();
+            triggerBlobDownload(blob, filename);
+            showToast(`Downloaded ${filename}`, 'success');
+          } catch (e) {
+            showToast('Download error: ' + e.message, 'error');
+          }
+        }
+      } else if (format === 'xlsx') {
+        const filename = currentRetrieveExportData.xlsx_filename || `${(currentRetrieveExportData.filename || 'eloqua_form_data').replace(/\.csv$/, '')}.xlsx`;
+        if (currentRetrieveExportData.xlsx_base64) {
+          const blob = base64ToBlob(currentRetrieveExportData.xlsx_base64, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+          triggerBlobDownload(blob, filename);
+          showToast(`Downloaded ${filename}`, 'success');
+        } else {
+          try {
+            const baseUrl = getApiBaseUrl();
+            const res = await fetch(`${baseUrl}${currentRetrieveExportData.xlsx_download_url}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const blob = await res.blob();
+            triggerBlobDownload(blob, filename);
+            showToast(`Downloaded ${filename}`, 'success');
+          } catch (e) {
+            showToast('Download error: ' + e.message, 'error');
+          }
+        }
+      }
+    }
+
+    function startSubmitMode() {
+      currentAppMode = 'submit';
+      document.getElementById('mode-selection-view')?.classList.add('hidden');
+      document.getElementById('retrieve-main')?.classList.add('hidden');
+      document.getElementById('step-tracker-bar')?.classList.remove('hidden');
+      document.getElementById('wizard-main')?.classList.remove('hidden');
+      document.getElementById('wizard-footer')?.classList.remove('hidden');
+      currentStep = 1;
+      renderStep();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function startRetrieveMode() {
+      currentAppMode = 'retrieve';
+      document.getElementById('mode-selection-view')?.classList.add('hidden');
+      document.getElementById('step-tracker-bar')?.classList.add('hidden');
+      document.getElementById('wizard-main')?.classList.add('hidden');
+      document.getElementById('wizard-footer')?.classList.add('hidden');
+      document.getElementById('retrieve-main')?.classList.remove('hidden');
+      updateRetrieveCacheStats();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    const ALIAS_MAP = {
+      "first": "first", "fname": "first", "first name": "first", "firstname": "first",
+      "last": "last", "lname": "last", "last name": "last", "lastname": "last",
+      "email": "email", "email address": "email", "emailaddress": "email", "e-mail": "email",
+      "phone": "phone", "telephone": "phone", "mobile": "phone", "cell": "phone", "bus phone": "phone",
+      "company": "company", "company name": "company", "organization": "company",
+      "title": "title", "job title": "title", "country": "country", "notes": "comments", "comments": "comments"
+    };
+
+    function levenshteinSimilarity(s1, s2) {
+      s1 = (s1 || '').toLowerCase().trim();
+      s2 = (s2 || '').toLowerCase().trim();
+      if (s1 === s2) return 1.0;
+      const len1 = s1.length, len2 = s2.length;
+      if (!len1 || !len2) return 0.0;
+      const dp = Array.from({ length: len1 + 1 }, () => Array(len2 + 1).fill(0));
+      for (let i = 0; i <= len1; i++) dp[i][0] = i;
+      for (let j = 0; j <= len2; j++) dp[0][j] = j;
+      for (let i = 1; i <= len1; i++) {
+        for (let j = 1; j <= len2; j++) {
+          const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+          dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+        }
+      }
+      return 1.0 - (dp[len1][len2] / Math.max(len1, len2));
+    }
+
+    /**
+     * Normalizes dates to MM/DD/YYYY format for Oracle Eloqua.
+     * Handles Excel serial numbers (e.g. 46321 -> 10/26/2026),
+     * Unix timestamps (seconds & milliseconds),
+     * standard date strings (ISO YYYY-MM-DD, MM/DD/YYYY, DD/MM/YYYY, etc.),
+     * and JS Date objects without timezone shift.
+     */
+    function normalizeEloquaDate(input) {
+      if (input === null || input === undefined) return '';
+      const str = String(input).trim();
+      if (!str) return '';
+
+      // 1. If input is a Date instance
+      if (input instanceof Date && !isNaN(input.getTime())) {
+        const mm = String(input.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(input.getUTCDate()).padStart(2, '0');
+        const yyyy = input.getUTCFullYear();
+        return `${mm}/${dd}/${yyyy}`;
+      }
+
+      // 2. Pure numeric values (Excel serial dates like 46321 or Unix timestamps)
+      if (/^-?\d+(\.\d+)?$/.test(str)) {
+        const num = parseFloat(str);
+
+        // Excel date serial number: roughly between 1000 (year 1902) and 100000 (year 2173)
+        // Excel epoch is 1899-12-30 (accounting for Excel's 1900 leap year bug).
+        // Days between 1899-12-30 and 1970-01-01 is 25569.
+        if (num >= 1000 && num <= 100000) {
+          const utcMs = Math.round((num - 25569) * 86400 * 1000);
+          const d = new Date(utcMs);
+          if (!isNaN(d.getTime())) {
+            const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(d.getUTCDate()).padStart(2, '0');
+            const yyyy = d.getUTCFullYear();
+            return `${mm}/${dd}/${yyyy}`;
+          }
+        }
+
+        // Unix epoch timestamp in seconds (e.g. 1700000000)
+        if (num >= 1000000000 && num <= 9999999999) {
+          const d = new Date(num * 1000);
+          if (!isNaN(d.getTime())) {
+            const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(d.getUTCDate()).padStart(2, '0');
+            const yyyy = d.getUTCFullYear();
+            return `${mm}/${dd}/${yyyy}`;
+          }
+        }
+
+        // Unix epoch timestamp in milliseconds (e.g. 1700000000000)
+        if (num >= 1000000000000 && num <= 9999999999999) {
+          const d = new Date(num);
+          if (!isNaN(d.getTime())) {
+            const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(d.getUTCDate()).padStart(2, '0');
+            const yyyy = d.getUTCFullYear();
+            return `${mm}/${dd}/${yyyy}`;
+          }
+        }
+      }
+
+      // 3. ISO / standard YYYY-MM-DD or YYYY/MM/DD (with optional time)
+      const isoMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+      if (isoMatch) {
+        const yyyy = isoMatch[1];
+        const mm = isoMatch[2].padStart(2, '0');
+        const dd = isoMatch[3].padStart(2, '0');
+        return `${mm}/${dd}/${yyyy}`;
+      }
+
+      // 4. M/D/YYYY, MM/DD/YYYY, or DD/MM/YYYY (with optional time)
+      const dateMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+      if (dateMatch) {
+        let p1 = parseInt(dateMatch[1], 10);
+        let p2 = parseInt(dateMatch[2], 10);
+        const yyyy = dateMatch[3];
+        // If first number > 12 and second <= 12, it's DD/MM/YYYY
+        if (p1 > 12 && p2 <= 12) {
+          return `${String(p2).padStart(2, '0')}/${String(p1).padStart(2, '0')}/${yyyy}`;
+        }
+        return `${String(p1).padStart(2, '0')}/${String(p2).padStart(2, '0')}/${yyyy}`;
+      }
+
+      // 5. General Date parsing fallback (e.g. "October 26, 2026", "26 Oct 2026")
+      const parsedMs = Date.parse(str);
+      if (!isNaN(parsedMs)) {
+        const d = new Date(parsedMs);
+        const y = d.getFullYear();
+        // Guard against year overflows (preventing "46321" parsed as year 46321)
+        if (y >= 1900 && y <= 2100) {
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          return `${mm}/${dd}/${y}`;
+        }
+      }
+
+      return str;
+    }
+
+    function getApiBaseUrl() {
+      // Clear any legacy dead backend URLs from localStorage
+      const stored = localStorage.getItem('eloqua_backend_url') || '';
+      if (stored.includes('mn4edwyie3nbnpbgmpajmf')) {
+        localStorage.removeItem('eloqua_backend_url');
+      }
+      const custom = (document.getElementById('admin-backend-url')?.value || localStorage.getItem('eloqua_backend_url') || '').trim();
+      if (custom && !custom.includes('mn4edwyie3nbnpbgmpajmf')) {
+        return custom.replace(/\/+$/, '');
+      }
+      return '';
+    }
+
+    function checkAdminRoute() {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      if (path.endsWith('/admin') || path.endsWith('/admin/') || path.endsWith('/admin.html') || hash === '#admin') {
+        openAdminView();
+      }
+    }
+
+    function openAdminView() {
+      isAdminOpen = true;
+      document.getElementById('admin-view').classList.remove('hidden');
+      document.getElementById('wizard-main').classList.add('hidden');
+      document.getElementById('wizard-footer').classList.add('hidden');
+      document.getElementById('step-tracker-bar').classList.add('hidden');
+      loadAdminConfig();
+    }
+
+    function closeAdminView() {
+      isAdminOpen = false;
+      document.getElementById('admin-view').classList.add('hidden');
+      document.getElementById('wizard-main').classList.remove('hidden');
+      document.getElementById('wizard-footer').classList.remove('hidden');
+      document.getElementById('step-tracker-bar').classList.remove('hidden');
+      if (window.location.hash === '#admin') {
+        history.pushState('', document.title, window.location.pathname);
+      }
+    }
+
+    async function loadAdminConfig() {
+      const storedBackend = localStorage.getItem('eloqua_backend_url') || '';
+      if (storedBackend.includes('mn4edwyie3nbnpbgmpajmf')) {
+        localStorage.removeItem('eloqua_backend_url');
+      }
+      if (document.getElementById('admin-backend-url')) {
+        document.getElementById('admin-backend-url').value = localStorage.getItem('eloqua_backend_url') || '';
+      }
+
+      try {
+        const baseUrl = getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/admin/config`);
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const data = await res.json();
+          document.getElementById('admin-site-id').value = data.site_id || '';
+          document.getElementById('admin-pod').value = data.pod || 'p01';
+          document.getElementById('admin-username').value = data.username || '';
+          document.getElementById('admin-batch-size').value = data.batch_size || 50;
+          document.getElementById('admin-throttle').value = data.throttle_seconds || 2;
+          document.getElementById('admin-max-rows').value = data.max_row_limit || 5000;
+          if (data.has_password) {
+            document.getElementById('pw-status').innerText = '✓ Existing password saved in database. Leave blank to preserve.';
+            document.getElementById('pw-status').className = 'text-[11px] text-emerald-600 font-medium mt-1';
+          }
+        }
+      } catch (e) {
+        console.warn('Could not fetch /api/admin/config');
+      }
+    }
+
+    async function handleSaveAdminConfig(e) {
+      e.preventDefault();
+      const btn = document.getElementById('admin-save-btn');
+      btn.innerText = 'Saving...';
+
+      const backendUrl = document.getElementById('admin-backend-url').value.trim();
+      if (backendUrl) {
+        localStorage.setItem('eloqua_backend_url', backendUrl);
+      }
+
+      const payload = {
+        site_id: document.getElementById('admin-site-id').value.trim(),
+        pod: document.getElementById('admin-pod').value.trim(),
+        username: document.getElementById('admin-username').value.trim(),
+        password: document.getElementById('admin-password').value.trim(),
+        batch_size: parseInt(document.getElementById('admin-batch-size').value, 10),
+        throttle_seconds: parseFloat(document.getElementById('admin-throttle').value),
+        max_row_limit: parseInt(document.getElementById('admin-max-rows').value, 10)
+      };
+
+      try {
+        const baseUrl = getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/admin/config`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await res.json();
+          alert(data.message || 'Configuration saved successfully.');
+          document.getElementById('admin-password').value = '';
+          closeAdminView();
+        } else {
+          localStorage.setItem('eloqua_site_id', payload.site_id);
+          localStorage.setItem('eloqua_pod', payload.pod);
+          localStorage.setItem('eloqua_username', payload.username);
+          alert('Configuration saved in browser storage.');
+          closeAdminView();
+        }
+      } catch (err) {
+        alert('Error saving configuration: ' + err.message);
+      } finally {
+        btn.innerText = 'Save Configuration';
+      }
+    }
+
+    async function testAdminConnection() {
+      const btn = document.getElementById('admin-test-btn');
+      const box = document.getElementById('admin-test-result');
+      const pod = document.getElementById('admin-pod').value.trim();
+      const site_id = document.getElementById('admin-site-id').value.trim();
+      const username = document.getElementById('admin-username').value.trim();
+      const password = document.getElementById('admin-password').value.trim();
+
+      btn.innerText = 'Connecting to Eloqua...';
+      btn.disabled = true;
+      box.classList.add('hidden');
+
+      try {
+        const baseUrl = getApiBaseUrl();
+        const endpoint = `${baseUrl}/api/admin/test-connection`;
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ site_id, pod, username, password })
+        });
+
+        const contentType = res.headers.get('content-type') || '';
+        box.classList.remove('hidden');
+
+        let data = null;
+        if (contentType.includes('application/json')) {
+          try {
+            data = await res.json();
+          } catch (jsonErr) {
+            data = null;
+          }
+        }
+
+        if (!data) {
+          box.className = 'p-3.5 rounded-xl text-xs font-medium bg-amber-50 text-amber-900 border border-amber-300';
+          box.innerHTML = `<strong>Backend API Notice:</strong> Endpoint <code>${endpoint}</code> returned HTTP ${res.status} (non-JSON response).<br>If running statically in Azure Blob Storage or S3, please specify your Backend Server Proxy URL above.`;
+          return;
+        }
+
+        if (data.success) {
+          box.className = 'p-3.5 rounded-xl text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200';
+          box.innerText = '✓ ' + data.message;
+        } else {
+          box.className = 'p-3.5 rounded-xl text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200';
+          box.innerText = '✕ ' + data.message;
+        }
+      } catch (err) {
+        box.classList.remove('hidden');
+        box.className = 'p-3.5 rounded-xl text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200';
+        box.innerText = 'Connection error: ' + err.message;
+      } finally {
+        btn.innerText = 'Test Connection';
+        btn.disabled = false;
+      }
+    }
+
+    function showToast(message, type = 'info') {
+      let toastContainer = document.getElementById('toast-container');
+      if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'fixed bottom-20 right-6 z-50 flex flex-col space-y-2 max-w-sm pointer-events-none';
+        document.body.appendChild(toastContainer);
+      }
+
+      const toast = document.createElement('div');
+      const bgClass = type === 'error' ? 'bg-rose-600 text-white' : type === 'warning' ? 'bg-amber-600 text-white' : type === 'success' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white';
+      toast.className = `${bgClass} px-4 py-3 rounded-xl shadow-xl text-xs font-medium flex items-center space-x-2 transition-all transform duration-200 pointer-events-auto`;
+      toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
+      toastContainer.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    async function loadCachedForms() {
+      try {
+        const baseUrl = getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/forms`);
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const data = await res.json();
+          cachedForms = data.forms || [];
+          document.getElementById('forms-cache-stat').innerText = `${data.total_cached || cachedForms.length} forms in SQLite storage.db`;
+          document.getElementById('forms-last-synced-stat').innerText = `Last synced: ${data.last_synced || 'Never'}`;
+          updateRetrieveCacheStats();
+        }
+      } catch (e) {
+        console.warn('Could not load cached forms');
+      }
+    }
+
+    function handleFormSearch(term) {
+      const dropdown = document.getElementById('form-dropdown');
+      const cleanTerm = (term || '').trim().toLowerCase();
+      
+      const filtered = cachedForms.filter(f =>
+        !cleanTerm || f.name.toLowerCase().includes(cleanTerm) || String(f.form_id).includes(cleanTerm)
+      );
+
+      if (filtered.length === 0) {
+        dropdown.innerHTML = '<div class="p-4 text-xs text-slate-500 text-center">No forms found matching your search. Click <strong>Sync Forms</strong> above to fetch your active forms from Oracle Eloqua.</div>';
+      } else {
+        const displayLimit = 500;
+        const visibleList = filtered.slice(0, displayLimit);
+        
+        let html = '';
+        if (filtered.length > displayLimit) {
+          html += `<div class="p-2.5 bg-slate-50 border-b border-gray-100 text-[11px] font-semibold text-slate-500 flex justify-between items-center sticky top-0 z-10">
+            <span>Showing top ${displayLimit} of ${filtered.length} forms</span>
+            <span class="text-blue-600">Type more to narrow</span>
+          </div>`;
+        } else {
+          html += `<div class="p-2 bg-slate-50 border-b border-gray-100 text-[11px] font-semibold text-slate-500 flex justify-between items-center sticky top-0 z-10">
+            <span>Showing all ${filtered.length} form${filtered.length === 1 ? '' : 's'}</span>
+          </div>`;
+        }
+
+        html += visibleList.map(f => `
+          <div onclick="selectForm(${f.form_id}, '${escapeHtml(f.name)}')" class="p-3 hover:bg-blue-50 cursor-pointer flex justify-between items-center text-xs transition-colors border-b border-gray-50 last:border-0">
+            <span class="font-semibold text-slate-800 truncate pr-3">${escapeHtml(f.name)}</span>
+            <span class="text-slate-400 font-mono flex-shrink-0 text-[11px] bg-slate-100 px-2 py-0.5 rounded">ID: ${f.form_id}</span>
+          </div>
+        `).join('');
+
+        dropdown.innerHTML = html;
+      }
+      dropdown.classList.remove('hidden');
+    }
+
+    async function selectForm(formId, formName) {
+      selectedForm = { form_id: formId, name: formName };
+      document.getElementById('form-dropdown').classList.add('hidden');
+      document.getElementById('form-search-input').value = formName;
+      document.getElementById('selected-form-banner').classList.remove('hidden');
+      document.getElementById('selected-form-name').innerText = formName;
+      document.getElementById('selected-form-meta').innerText = `Eloqua Numeric ID: ${formId} • Loading field definitions...`;
+      document.getElementById('btn-next').disabled = false;
+      await fetchFormFields(formId);
+    }
+
+    async function fetchFormFields(formId) {
+      try {
+        const baseUrl = getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/forms/${formId}/fields`);
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data.fields) {
+            formFields = data.fields;
+            const hasGuid = formFields.some(f => {
+              const n = (f.name + ' ' + (f.htmlName || '')).toLowerCase().replace(/[^a-z]/g, '');
+              return n.includes('elqcustomerguid') || n.includes('customerguid');
+            });
+            const guidNote = hasGuid ? ' • elqCustomerGUID auto-injected' : '';
+            document.getElementById('selected-form-meta').innerText = `Eloqua Numeric ID: ${formId} • ${formFields.length} actionable input fields loaded${guidNote}`;
+            return;
+          }
+        }
+        formFields = [];
+        document.getElementById('selected-form-meta').innerText = `Eloqua Numeric ID: ${formId} • No input fields returned`;
+      } catch (e) {
+        console.error('Error fetching fields:', e);
+      }
+    }
+
+    async function syncForms() {
+      const btn = document.getElementById('sync-forms-btn');
+      const box = document.getElementById('sync-feedback-box');
+      btn.innerText = 'Syncing...';
+      btn.disabled = true;
+      box.classList.add('hidden');
+
+      try {
+        const baseUrl = getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/forms/sync`, { method: 'POST' });
+        const contentType = res.headers.get('content-type') || '';
+        box.classList.remove('hidden');
+
+        let data = null;
+        if (contentType.includes('application/json')) {
+          try { data = await res.json(); } catch {}
+        }
+
+        if (res.ok && data && data.success) {
+          box.className = 'mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900';
+          box.innerText = `Sync Complete: ${data.synced_count} active forms found.`;
+          await loadCachedForms();
+        } else {
+          box.className = 'mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900';
+          box.innerText = (data && data.message) ? data.message : `Failed to sync forms from Eloqua (HTTP ${res.status}). Verify credentials in /admin.`;
+        }
+      } catch (e) {
+        box.classList.remove('hidden');
+        box.className = 'mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900';
+        box.innerText = 'Sync error: ' + e.message;
+      } finally {
+        btn.innerText = 'Sync Forms';
+        btn.disabled = false;
+      }
+    }
+
+    function refreshFormFields() {
+      if (!selectedForm) {
+        showToast('Please select a form first.', 'warning');
+        return;
+      }
+      fetchFormFields(selectedForm.form_id);
+      showToast(`Refreshed actionable input fields for form #${selectedForm.form_id}.`, 'success');
+    }
+
+    function handleFileSelected(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+      if (ext !== '.csv' && ext !== '.xlsx') {
+        showToast('Please select a .csv or .xlsx file.', 'warning');
+        return;
+      }
+
+      const reader = new FileReader();
+      if (ext === '.csv') {
+        reader.onload = (e) => {
+          Papa.parse(e.target.result, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+              const rawHeaders = results.meta.fields || [];
+              const rawRows = results.data || [];
+              const normalizedRows = rawRows.map(r => {
+                const cleaned = {};
+                rawHeaders.forEach(h => {
+                  let v = r[h] !== undefined && r[h] !== null ? r[h] : '';
+                  if (h.toLowerCase().includes('date') || h.toLowerCase().includes('time') || h.toLowerCase().includes('dob')) {
+                    v = normalizeEloquaDate(v);
+                  }
+                  cleaned[h] = String(v);
+                });
+                return cleaned;
+              });
+              finalizeParsedData(file.name, rawHeaders, normalizedRows);
+            }
+          });
+        };
+        reader.readAsText(file);
+      } else {
+        reader.onload = (e) => {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, dateNF: 'mm/dd/yyyy' });
+          if (!rows || rows.length === 0) {
+            showToast('Spreadsheet is empty.', 'error');
+            return;
+          }
+          const headers = rows[0].map((h, i) => h ? String(h).trim() : `Column_${i+1}`);
+          const parsedRows = [];
+          for (let i = 1; i < rows.length; i++) {
+            const r = rows[i];
+            if (!r || !r.some(v => v !== undefined && v !== '')) continue;
+            const obj = {};
+            headers.forEach((h, hIdx) => {
+              let cellVal = r[hIdx] !== undefined && r[hIdx] !== null ? r[hIdx] : '';
+              if (cellVal instanceof Date || h.toLowerCase().includes('date') || h.toLowerCase().includes('time') || h.toLowerCase().includes('dob')) {
+                cellVal = normalizeEloquaDate(cellVal);
+              }
+              obj[h] = String(cellVal);
+            });
+            parsedRows.push(obj);
+          }
+          finalizeParsedData(file.name, headers, parsedRows);
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    }
+
+    function finalizeParsedData(filename, headers, rows) {
+      if (rows.length === 0) {
+        showToast('The uploaded file contains headers but no data rows.', 'warning');
+        return;
+      }
+
+      const seen = new Set();
+      const duplicates = [];
+      headers.forEach(h => {
+        if (seen.has(h)) duplicates.push(h);
+        else seen.add(h);
+      });
+
+      uploadedData = {
+        job_id: 'job_' + Math.random().toString(36).substring(2, 9),
+        filename: filename,
+        headers: headers,
+        duplicate_headers: [...new Set(duplicates)],
+        total_rows: rows.length,
+        sample_row: rows[0] || {},
+        rows: rows
+      };
+
+      document.getElementById('file-preview-banner').classList.remove('hidden');
+      document.getElementById('file-preview-name').innerText = filename;
+      document.getElementById('file-preview-stats').innerText = `${rows.length} rows parsed • ${headers.length} columns detected (First sheet)`;
+
+      const dupWarning = document.getElementById('duplicate-header-warning');
+      if (duplicates.length > 0) {
+        dupWarning.classList.remove('hidden');
+        document.getElementById('duplicate-header-list').innerText = duplicates.join(', ');
+      } else {
+        dupWarning.classList.add('hidden');
+      }
+
+      document.getElementById('btn-next').disabled = false;
+    }
+
+    function resetFileSelection() {
+      uploadedData = null;
+      document.getElementById('file-input').value = '';
+      document.getElementById('file-preview-banner').classList.add('hidden');
+      document.getElementById('duplicate-header-warning').classList.add('hidden');
+      document.getElementById('btn-next').disabled = true;
+    }
+
+    function buildMappingUI() {
+      const tbody = document.getElementById('mapping-table-body');
+      tbody.innerHTML = '';
+      fieldMapping = {};
+      const usedFieldIds = new Set();
+
+      uploadedData.headers.forEach(col => {
+        const sampleVal = uploadedData.sample_row[col] !== undefined ? String(uploadedData.sample_row[col]) : '';
+        const normCol = col.toLowerCase().trim();
+        let matched = null;
+
+        // 1. Alias dictionary (avoiding already assigned form fields)
+        for (const [alias, canonical] of Object.entries(ALIAS_MAP)) {
+          if (normCol === alias || normCol.includes(alias)) {
+            matched = formFields.find(f => !usedFieldIds.has(String(f.id)) && f.name.toLowerCase().includes(canonical));
+            if (matched) break;
+          }
+        }
+
+        // 2. Levenshtein ratio > 0.70 (avoiding already assigned form fields)
+        if (!matched) {
+          let best = 0;
+          for (const f of formFields) {
+            if (usedFieldIds.has(String(f.id))) continue;
+            const score = levenshteinSimilarity(col, f.name);
+            if (score > best && score >= 0.70) {
+              best = score;
+              matched = f;
+            }
+          }
+        }
+
+        if (matched) {
+          usedFieldIds.add(String(matched.id));
+        }
+
+        fieldMapping[col] = matched || 'ignore';
+        const isDuplicate = uploadedData.duplicate_headers.includes(col);
+
+        const tr = document.createElement('tr');
+        tr.className = isDuplicate ? 'bg-amber-50/70' : '';
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-semibold">
+            ${escapeHtml(col)}
+            ${isDuplicate ? '<span class="ml-2 px-1.5 py-0.5 text-[10px] bg-amber-200 text-amber-900 rounded font-bold">Duplicate</span>' : ''}
+          </td>
+          <td class="py-3 px-4 text-slate-500 font-mono max-w-xs truncate" title="${escapeHtml(sampleVal)}">
+            ${escapeHtml(sampleVal) || '<span class="italic text-slate-300">empty</span>'}
+          </td>
+          <td class="py-3 px-4">
+            <select onchange="updateMapping('${escapeHtml(col)}', this.value)" class="w-full text-xs bg-slate-50 border border-gray-300 rounded-lg py-1.5 px-2.5 focus:bg-white outline-none">
+              <option value="ignore" ${!matched ? 'selected' : ''}>[ -- Ignore Column -- ]</option>
+              ${formFields.map(f => `
+                <option value="${f.id}" ${matched && matched.id === f.id ? 'selected' : ''}>
+                  ${escapeHtml(f.name)} (ID: ${f.id})
+                </option>
+              `).join('')}
+            </select>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      validateEmailMapping();
+      checkDuplicateMappingWarnings();
+    }
+
+    function updateMapping(col, selectedVal) {
+      if (selectedVal === 'ignore') {
+        fieldMapping[col] = 'ignore';
+      } else {
+        fieldMapping[col] = formFields.find(f => f.id == selectedVal) || 'ignore';
+      }
+      validateEmailMapping();
+      checkDuplicateMappingWarnings();
+    }
+
+    function checkDuplicateMappingWarnings() {
+      const fieldCount = new Map();
+      for (const [col, target] of Object.entries(fieldMapping)) {
+        if (target && target !== 'ignore') {
+          const fid = String(target.id);
+          if (!fieldCount.has(fid)) {
+            fieldCount.set(fid, { name: target.name, cols: [col] });
+          } else {
+            fieldCount.get(fid).cols.push(col);
+          }
+        }
+      }
+
+      const duplicates = Array.from(fieldCount.values()).filter(item => item.cols.length > 1);
+      const noticeBox = document.getElementById('duplicate-mapping-notice');
+      const textSpan = document.getElementById('duplicate-mapping-notice-text');
+      if (duplicates.length > 0) {
+        noticeBox.classList.remove('hidden');
+        const summary = duplicates.map(d => `"${escapeHtml(d.name)}" (mapped to: ${d.cols.map(c => `<b>${escapeHtml(c)}</b>`).join(', ')})`).join('; ');
+        textSpan.innerHTML = `Multiple columns are mapped to the same Eloqua field: ${summary}. To satisfy Oracle Eloqua's <code>NoDuplicatesRequirement</code>, non-empty values will be submitted without duplicating field IDs.`;
+      } else {
+        noticeBox.classList.add('hidden');
+      }
+    }
+
+    function validateEmailMapping() {
+      let hasEmail = false;
+      for (const [col, target] of Object.entries(fieldMapping)) {
+        if (target && target !== 'ignore') {
+          if (target.name.toLowerCase().includes('email') || col.toLowerCase().includes('email')) {
+            hasEmail = true;
+            break;
+          }
+        }
+      }
+      const badge = document.getElementById('email-validation-badge');
+      const nextBtn = document.getElementById('btn-next');
+      if (hasEmail) {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200';
+        badge.innerText = '✓ Valid Email Field Mapped';
+        nextBtn.disabled = false;
+      } else {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300';
+        badge.innerText = 'Email mapping required';
+        nextBtn.disabled = true;
+      }
+    }
+
+    function buildReviewUI() {
+      const tbody = document.getElementById('review-table-body');
+      tbody.innerHTML = '';
+      let mappedCount = 0;
+      let ignoredCount = 0;
+
+      for (const [col, target] of Object.entries(fieldMapping)) {
+        const sample = uploadedData.sample_row[col] !== undefined ? String(uploadedData.sample_row[col]) : '';
+        if (target && target !== 'ignore') {
+          mappedCount++;
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="py-2.5 px-4 font-semibold text-slate-800">
+              ${escapeHtml(col)} <span class="text-xs text-slate-400 font-normal">("${escapeHtml(sample)}")</span>
+            </td>
+            <td class="py-2.5 px-4 text-blue-700 font-semibold">
+              ${escapeHtml(target.name)} <span class="text-xs text-slate-400 font-mono">[${target.id}]</span>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        } else {
+          ignoredCount++;
+        }
+      }
+
+      document.getElementById('summary-total-rows').innerText = uploadedData.total_rows;
+      document.getElementById('summary-mapped-count').innerText = mappedCount;
+      document.getElementById('summary-ignored-count').innerText = ignoredCount;
+      document.getElementById('summary-target-form').innerText = `${selectedForm.name} (ID: ${selectedForm.form_id})`;
+      document.getElementById('btn-next').disabled = false;
+    }
+
+    async function executeBatchProcessing() {
+      isProcessing = true;
+      document.getElementById('circuit-breaker-banner').classList.add('hidden');
+      document.getElementById('success-banner').classList.add('hidden');
+      document.getElementById('failed-records-container').classList.add('hidden');
+
+      try {
+        const baseUrl = getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/jobs/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            form_id: selectedForm.form_id,
+            form_name: selectedForm.name,
+            mapping: fieldMapping,
+            rows: uploadedData.rows
+          })
+        });
+
+        const contentType = res.headers.get('content-type') || '';
+        let data = null;
+        if (contentType.includes('application/json')) {
+          try { data = await res.json(); } catch {}
+        }
+
+        if (!res.ok || !data) {
+          showToast((data && data.error) ? data.error : `Failed to submit batch job (HTTP ${res.status}).`, 'error');
+          isProcessing = false;
+          return;
+        }
+
+        activeJobId = data.job_id;
+        pollJobStatus(activeJobId);
+      } catch (err) {
+        showToast('Batch submission failed: ' + err.message, 'error');
+        isProcessing = false;
+      }
+    }
+
+    function pollJobStatus(jobId) {
+      if (pollingInterval) clearInterval(pollingInterval);
+      pollingInterval = setInterval(async () => {
+        try {
+          const baseUrl = getApiBaseUrl();
+          const res = await fetch(`${baseUrl}/api/jobs/${jobId}/status`);
+          const contentType = res.headers.get('content-type') || '';
+          if (res.ok && contentType.includes('application/json')) {
+            const job = await res.json();
+            const total = job.total_rows || uploadedData.total_rows || 1;
+            const processed = job.processed_rows || 0;
+            const succ = job.successful_rows || 0;
+            const fail = job.failed_rows || 0;
+            const pct = Math.round((processed / total) * 100);
+
+            document.getElementById('stat-total-rows').innerText = total;
+            document.getElementById('stat-processed-rows').innerText = processed;
+            document.getElementById('stat-successful-rows').innerText = succ;
+            document.getElementById('stat-failed-rows').innerText = fail;
+            document.getElementById('process-percent-text').innerText = `${pct}%`;
+            document.getElementById('process-progress-bar').style.width = `${pct}%`;
+
+            if (job.status === 'halted_error') {
+              clearInterval(pollingInterval);
+              isProcessing = false;
+              document.getElementById('process-phase-text').innerText = 'Halted via Circuit Breaker';
+              document.getElementById('process-progress-bar').className = 'h-full bg-rose-600';
+              document.getElementById('circuit-breaker-banner').classList.remove('hidden');
+              document.getElementById('circuit-breaker-text').innerText = job.error_summary || '100% failure rate in batch.';
+              setupErrorDownload(jobId, fail);
+              document.getElementById('step5-actions')?.classList.remove('hidden');
+              renderStep();
+            } else if (job.status === 'completed' || job.status === 'failed') {
+              clearInterval(pollingInterval);
+              isProcessing = false;
+              document.getElementById('process-phase-text').innerText = 'Ingestion Completed';
+              if (fail === 0) {
+                document.getElementById('success-banner').classList.remove('hidden');
+                document.getElementById('success-banner-subtext').innerText = `All ${succ} records submitted successfully to Eloqua form #${job.form_id}.`;
+              } else {
+                setupErrorDownload(jobId, fail);
+              }
+              document.getElementById('step5-actions')?.classList.remove('hidden');
+              renderStep();
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }, 1000);
+    }
+
+    function setupErrorDownload(jobId, failCount) {
+      const container = document.getElementById('failed-records-container');
+      container.classList.remove('hidden');
+      document.getElementById('failed-records-btn-text').innerText = `Download Failed Records (${failCount}) (.csv)`;
+    }
+
+    async function downloadFailedRecordsCSV() {
+      if (!activeJobId) return;
+      const baseUrl = getApiBaseUrl();
+      try {
+        const res = await fetch(`${baseUrl}/api/jobs/${activeJobId}/download-errors`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        triggerBlobDownload(blob, `failed_records_${activeJobId}.csv`);
+        showToast('Downloaded failed records CSV.', 'info');
+      } catch (err) {
+        showToast('Failed to download error log: ' + err.message, 'error');
+      }
+    }
+
+    function goToNextStep() {
+      if (currentStep === 1) {
+        currentStep = 2;
+      } else if (currentStep === 2) {
+        currentStep = 3;
+        buildMappingUI();
+      } else if (currentStep === 3) {
+        currentStep = 4;
+        buildReviewUI();
+      } else if (currentStep === 4) {
+        currentStep = 5;
+        executeBatchProcessing();
+      }
+      renderStep();
+    }
+
+    function goToPreviousStep() {
+      if (currentStep > 1 && currentStep < 5) {
+        currentStep--;
+        renderStep();
+      }
+    }
+
+    function renderStep() {
+      for (let i = 1; i <= 5; i++) {
+        document.getElementById(`step-${i}`).classList.toggle('hidden', i !== currentStep);
+        const nav = document.getElementById(`step-nav-${i}`);
+        if (i < currentStep) {
+          nav.className = 'flex items-center space-x-2 step-done';
+        } else if (i === currentStep) {
+          nav.className = 'flex items-center space-x-2 step-active';
+        } else {
+          nav.className = 'flex items-center space-x-2 step-inactive';
+        }
+      }
+
+      const backBtn = document.getElementById('btn-back');
+      const nextBtn = document.getElementById('btn-next');
+      const statusText = document.getElementById('footer-status-text');
+
+      backBtn.classList.toggle('hidden', currentStep === 1 || currentStep === 5);
+
+      if (currentStep === 1) {
+        nextBtn.onclick = goToNextStep;
+        statusText.innerText = 'Step 1 of 5: Select Eloqua destination form';
+        nextBtn.innerText = 'Continue →';
+        nextBtn.disabled = !selectedForm;
+        nextBtn.classList.remove('hidden');
+      } else if (currentStep === 2) {
+        nextBtn.onclick = goToNextStep;
+        statusText.innerText = 'Step 2 of 5: Upload spreadsheet (.xlsx or .csv)';
+        nextBtn.innerText = 'Continue →';
+        nextBtn.disabled = !uploadedData;
+        nextBtn.classList.remove('hidden');
+      } else if (currentStep === 3) {
+        nextBtn.onclick = goToNextStep;
+        statusText.innerText = 'Step 3 of 5: Map columns to Eloqua form fields';
+        nextBtn.innerText = 'Review Mapping →';
+        validateEmailMapping();
+        nextBtn.classList.remove('hidden');
+      } else if (currentStep === 4) {
+        nextBtn.onclick = goToNextStep;
+        statusText.innerText = 'Step 4 of 5: Final review and confirmation';
+        nextBtn.innerText = 'Submit to Eloqua Form';
+        nextBtn.disabled = false;
+        nextBtn.classList.remove('hidden');
+      } else if (currentStep === 5) {
+        if (isProcessing) {
+          statusText.innerText = 'Step 5 of 5: Batch dispatcher in progress...';
+          nextBtn.classList.add('hidden');
+        } else {
+          statusText.innerText = 'Step 5 of 5: Ingestion process completed';
+          nextBtn.innerText = 'Start Over ↺';
+          nextBtn.onclick = resetWizard;
+          nextBtn.disabled = false;
+          nextBtn.classList.remove('hidden');
+        }
+      }
+    }
+
+    function resetWizard() {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+      }
+      isProcessing = false;
+      activeJobId = null;
+      uploadedData = null;
+      fieldMapping = {};
+      selectedForm = null;
+      formFields = [];
+      failedRowsList = [];
+      currentStep = 1;
+
+      // Reset retrieve state
+      retrieveSelectedForm = null;
+      isRetrieving = false;
+      const retSearch = document.getElementById('retrieve-form-search-input');
+      if (retSearch) retSearch.value = '';
+      document.getElementById('retrieve-selected-form-banner')?.classList.add('hidden');
+      document.getElementById('retrieve-results-box')?.classList.add('hidden');
+      document.getElementById('retrieve-error-box')?.classList.add('hidden');
+      document.getElementById('retrieve-loading-box')?.classList.add('hidden');
+      document.getElementById('retrieve-sync-feedback')?.classList.add('hidden');
+      const retBtn = document.getElementById('retrieve-execute-btn');
+      if (retBtn) retBtn.disabled = true;
+
+      // Reset file input and search input
+      const fileInput = document.getElementById('file-input');
+      if (fileInput) fileInput.value = '';
+      const searchInput = document.getElementById('form-search-input');
+      if (searchInput) searchInput.value = '';
+
+      // Reset banners & panels
+      document.getElementById('selected-form-banner')?.classList.add('hidden');
+      document.getElementById('file-preview-banner')?.classList.add('hidden');
+      document.getElementById('duplicate-header-warning')?.classList.add('hidden');
+      document.getElementById('circuit-breaker-banner')?.classList.add('hidden');
+      document.getElementById('success-banner')?.classList.add('hidden');
+      document.getElementById('failed-records-container')?.classList.add('hidden');
+      document.getElementById('step5-actions')?.classList.add('hidden');
+      document.getElementById('form-dropdown')?.classList.add('hidden');
+      document.getElementById('sync-feedback-box')?.classList.add('hidden');
+
+      // Reset tables
+      const mappingTbody = document.getElementById('mapping-table-body');
+      if (mappingTbody) mappingTbody.innerHTML = '';
+      const reviewTbody = document.getElementById('review-table-body');
+      if (reviewTbody) reviewTbody.innerHTML = '';
+
+      // Reset metrics
+      document.getElementById('stat-total-rows').innerText = '0';
+      document.getElementById('stat-processed-rows').innerText = '0';
+      document.getElementById('stat-successful-rows').innerText = '0';
+      document.getElementById('stat-failed-rows').innerText = '0';
+      document.getElementById('process-percent-text').innerText = '0%';
+      const progressBar = document.getElementById('process-progress-bar');
+      if (progressBar) {
+        progressBar.style.width = '0%';
+        progressBar.className = 'h-full bg-blue-600 transition-all duration-300';
+      }
+      document.getElementById('process-phase-text').innerText = 'Submitting records to Eloqua REST API...';
+
+      // Restore button onclick handler
+      const nextBtn = document.getElementById('btn-next');
+      if (nextBtn) {
+        nextBtn.onclick = goToNextStep;
+      }
+
+      // Return to operation mode selection per spec
+      currentAppMode = 'select';
+      document.getElementById('step-tracker-bar')?.classList.add('hidden');
+      document.getElementById('wizard-main')?.classList.add('hidden');
+      document.getElementById('wizard-footer')?.classList.add('hidden');
+      document.getElementById('retrieve-main')?.classList.add('hidden');
+      document.getElementById('mode-selection-view')?.classList.remove('hidden');
+
+      showToast('Returned to operation selection.', 'info');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updateRetrieveCacheStats() {
+      const statEl = document.getElementById('retrieve-cache-stat');
+      if (statEl) {
+        statEl.innerText = `${cachedForms.length} forms in SQLite storage.db`;
+      }
+    }
+
+    function handleRetrieveFormSearch(query) {
+      const dropdown = document.getElementById('retrieve-form-dropdown');
+      if (!dropdown) return;
+      const q = (query || '').toLowerCase().trim();
+      
+      const filtered = cachedForms.filter(f => 
+        !q || f.name.toLowerCase().includes(q) || String(f.form_id).includes(q)
+      );
+
+      if (filtered.length === 0) {
+        dropdown.innerHTML = `<div class="p-4 text-xs text-slate-400 text-center">No matching Eloqua forms found. Click 'Sync Forms' above to fetch active forms.</div>`;
+      } else {
+        const displayLimit = 100;
+        const visibleList = filtered.slice(0, displayLimit);
+        let html = '';
+        if (filtered.length > displayLimit) {
+          html += `<div class="p-2 bg-slate-50 border-b border-gray-100 text-[11px] font-semibold text-slate-500 flex justify-between items-center sticky top-0 z-10">
+            <span>Showing top ${displayLimit} of ${filtered.length} forms</span>
+            <span class="text-blue-600">Type more to narrow</span>
+          </div>`;
+        } else {
+          html += `<div class="p-2 bg-slate-50 border-b border-gray-100 text-[11px] font-semibold text-slate-500 flex justify-between items-center sticky top-0 z-10">
+            <span>Showing all ${filtered.length} form${filtered.length === 1 ? '' : 's'}</span>
+          </div>`;
+        }
+
+        html += visibleList.map(f => `
+          <div onclick="selectRetrieveForm(${f.form_id}, '${escapeHtml(f.name)}')" class="p-3 hover:bg-blue-50 cursor-pointer flex justify-between items-center text-xs transition-colors border-b border-gray-50 last:border-0">
+            <span class="font-semibold text-slate-800 truncate pr-3">${escapeHtml(f.name)}</span>
+            <span class="text-slate-400 font-mono flex-shrink-0 text-[11px] bg-slate-100 px-2 py-0.5 rounded">ID: ${f.form_id}</span>
+          </div>
+        `).join('');
+
+        dropdown.innerHTML = html;
+      }
+      dropdown.classList.remove('hidden');
+    }
+
+    function selectRetrieveForm(formId, formName) {
+      retrieveSelectedForm = { form_id: formId, name: formName };
+      document.getElementById('retrieve-form-dropdown')?.classList.add('hidden');
+      const searchInput = document.getElementById('retrieve-form-search-input');
+      if (searchInput) searchInput.value = formName;
+      
+      const banner = document.getElementById('retrieve-selected-form-banner');
+      if (banner) banner.classList.remove('hidden');
+      document.getElementById('retrieve-selected-form-name').innerText = formName;
+      document.getElementById('retrieve-selected-form-meta').innerText = `Eloqua Numeric ID: ${formId}`;
+
+      const executeBtn = document.getElementById('retrieve-execute-btn');
+      if (executeBtn) executeBtn.disabled = false;
+
+      document.getElementById('retrieve-results-box')?.classList.add('hidden');
+      document.getElementById('retrieve-error-box')?.classList.add('hidden');
+    }
+
+    function clearRetrieveSelectedForm() {
+      retrieveSelectedForm = null;
+      const searchInput = document.getElementById('retrieve-form-search-input');
+      if (searchInput) searchInput.value = '';
+      document.getElementById('retrieve-selected-form-banner')?.classList.add('hidden');
+      const executeBtn = document.getElementById('retrieve-execute-btn');
+      if (executeBtn) executeBtn.disabled = true;
+      document.getElementById('retrieve-results-box')?.classList.add('hidden');
+      document.getElementById('retrieve-error-box')?.classList.add('hidden');
+    }
+
+    async function syncRetrieveForms() {
+      const btn = document.getElementById('retrieve-sync-forms-btn');
+      const box = document.getElementById('retrieve-sync-feedback');
+      btn.innerText = 'Syncing...';
+      box.classList.remove('hidden');
+      box.className = 'p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900';
+      box.innerText = 'Connecting to Oracle Eloqua REST API 2.0 to fetch all active forms...';
+
+      try {
+        const baseUrl = getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/api/forms/sync`, { method: 'POST' });
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const data = await res.json();
+          box.className = 'p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900';
+          box.innerText = `Sync Complete: ${data.synced_count} active forms found.`;
+          showToast(`Synced ${data.synced_count} forms from Eloqua.`, 'success');
+          await loadCachedForms();
+          updateRetrieveCacheStats();
+        } else {
+          const err = await res.text();
+          box.className = 'p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900';
+          box.innerText = `Sync failed: ${err}`;
+          showToast('Failed to sync forms from Eloqua.', 'error');
+        }
+      } catch (e) {
+        box.className = 'p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900';
+        box.innerText = `Network error during sync: ${e.message}`;
+        showToast('Network error during sync.', 'error');
+      } finally {
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>Sync Forms`;
+      }
+    }
+
+    async function executeRetrieveData() {
+      if (!retrieveSelectedForm || isRetrieving) return;
+
+      const recordCount = parseInt(document.getElementById('retrieve-record-count').value, 10) || 10;
+      isRetrieving = true;
+
+      const executeBtn = document.getElementById('retrieve-execute-btn');
+      const btnText = document.getElementById('retrieve-execute-btn-text');
+      const loadingBox = document.getElementById('retrieve-loading-box');
+      const resultsBox = document.getElementById('retrieve-results-box');
+      const errorBox = document.getElementById('retrieve-error-box');
+
+      executeBtn.disabled = true;
+      btnText.innerText = 'Retrieving Data...';
+      loadingBox.classList.remove('hidden');
+      resultsBox.classList.add('hidden');
+      errorBox.classList.add('hidden');
+
+      try {
+        const baseUrl = getApiBaseUrl();
+        const payload = {
+          form_id: retrieveSelectedForm.form_id,
+          count: recordCount
+        };
+
+        const res = await fetch(`${baseUrl}/api/forms/${retrieveSelectedForm.form_id}/export`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const contentType = res.headers.get('content-type') || '';
+        if (!res.ok || !contentType.includes('application/json')) {
+          let errText = await res.text();
+          try {
+            const errJson = JSON.parse(errText);
+            errText = errJson.message || errText;
+          } catch {}
+          throw new Error(errText || `Server returned HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        if (!data.success) {
+          throw new Error(data.message || 'Failed to retrieve form data.');
+        }
+
+        // Save active export data for direct in-browser blob downloads
+        currentRetrieveExportData = data;
+
+        // Render success details
+        loadingBox.classList.add('hidden');
+        resultsBox.classList.remove('hidden');
+
+        if (data.total_records === 0) {
+          document.getElementById('retrieve-success-title').innerText = '0 Submissions Found';
+          document.getElementById('retrieve-success-subtext').innerText = `Form: ${data.form_name} (ID: ${data.form_id}) has 0 recorded submissions in Oracle Eloqua.`;
+          document.getElementById('retrieve-preview-count').innerText = '0 records found in Eloqua';
+          showToast(`Form #${data.form_id} has 0 submissions in Eloqua. An empty template file is ready for download.`, 'info');
+        } else {
+          document.getElementById('retrieve-success-title').innerText = `${data.total_records} Submissions Retrieved`;
+          document.getElementById('retrieve-success-subtext').innerText = `Form: ${data.form_name} (ID: ${data.form_id}) • Requested: ${data.requested_count} records`;
+          document.getElementById('retrieve-preview-count').innerText = `Showing first ${data.preview_rows.length} of ${data.total_records} records`;
+          showToast(`Successfully retrieved ${data.total_records} records! Excel file ready for download.`, 'success');
+        }
+
+        // Render Preview Table
+        const thead = document.getElementById('retrieve-table-head');
+        const tbody = document.getElementById('retrieve-table-body');
+        
+        let headerHtml = '<tr>';
+        for (const col of data.columns) {
+          headerHtml += `<th class="px-3.5 py-2.5 font-bold whitespace-nowrap text-slate-700 bg-slate-100 border-b border-gray-200">${escapeHtml(col)}</th>`;
+        }
+        headerHtml += '</tr>';
+        thead.innerHTML = headerHtml;
+
+        let rowsHtml = '';
+        if (data.preview_rows.length === 0) {
+          rowsHtml = `<tr><td colspan="${data.columns.length}" class="px-4 py-8 text-center text-slate-400">No submission records recorded for this form yet.</td></tr>`;
+        } else {
+          for (let i = 0; i < data.preview_rows.length; i++) {
+            const row = data.preview_rows[i];
+            rowsHtml += `<tr class="hover:bg-slate-50 transition-colors">`;
+            for (const col of data.columns) {
+              const val = row[col] !== undefined && row[col] !== null ? String(row[col]) : '';
+              rowsHtml += `<td class="px-3.5 py-2 font-normal text-slate-700 whitespace-nowrap max-w-xs truncate" title="${escapeHtml(val)}">${escapeHtml(val) || '<span class="text-slate-300 italic">empty</span>'}</td>`;
+            }
+            rowsHtml += `</tr>`;
+          }
+        }
+        tbody.innerHTML = rowsHtml;
+
+        showToast(`Successfully retrieved ${data.total_records} records! Excel file ready for download.`, 'success');
+      } catch (err) {
+        console.error('Retrieve error:', err);
+        loadingBox.classList.add('hidden');
+        errorBox.classList.remove('hidden');
+        document.getElementById('retrieve-error-message').innerText = err.message || 'An unexpected error occurred while communicating with Eloqua.';
+        showToast(err.message || 'Error retrieving data from Eloqua.', 'error');
+      } finally {
+        isRetrieving = false;
+        executeBtn.disabled = !retrieveSelectedForm;
+        btnText.innerText = 'Retrieve & Export to Excel';
+      }
+    }
+
+    function resetRetrieveForm() {
+      clearRetrieveSelectedForm();
+      document.getElementById('retrieve-results-box')?.classList.add('hidden');
+      document.getElementById('retrieve-error-box')?.classList.add('hidden');
+      document.getElementById('retrieve-loading-box')?.classList.add('hidden');
+      const searchInput = document.getElementById('retrieve-form-search-input');
+      if (searchInput) searchInput.focus();
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return String(text).replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
+    }
+
+    // Dismiss dropdowns on outside click
+    document.addEventListener('click', (e) => {
+      const dropdown = document.getElementById('form-dropdown');
+      const input = document.getElementById('form-search-input');
+      if (dropdown && !dropdown.contains(e.target) && e.target !== input) {
+        dropdown.classList.add('hidden');
+      }
+
+      const retDropdown = document.getElementById('retrieve-form-dropdown');
+      const retInput = document.getElementById('retrieve-form-search-input');
+      if (retDropdown && !retDropdown.contains(e.target) && e.target !== retInput) {
+        retDropdown.classList.add('hidden');
+      }
+    });
+
+    window.onload = () => {
+      checkAdminRoute();
+      loadCachedForms();
+      window.addEventListener('hashchange', checkAdminRoute);
+    };
+  </script>
+</body>
+</html>
